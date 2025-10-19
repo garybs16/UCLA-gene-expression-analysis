@@ -100,3 +100,16 @@ If you use this code or dataset in your research:
   year      = {2024},
   url       = {https://huggingface.co/datasets/tahoebio/Tahoe-100M}
 }
+
+
+
+📄 License
+
+MIT License © 2025 UCLA Bioinformatics Research Group
+Use of the Tahoe-100M dataset is subject to the Hugging Face dataset license terms.
+
+
+---
+
+✅ Paste that directly into your `README.md`.  
+It uses your exact tone, emoji headers, and consistent Markdown spacing — perfect for GitHub rendering.
