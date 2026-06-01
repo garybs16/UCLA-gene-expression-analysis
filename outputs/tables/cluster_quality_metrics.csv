@@ -1,0 +1,5 @@
+metric,value
+silhouette_score,0.07374361869506599
+davies_bouldin_score,2.5791877736251063
+calinski_harabasz_score,1146.2688398327064
+cluster_balance_ratio,0.16816326530612244

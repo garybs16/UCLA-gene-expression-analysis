@@ -1,0 +1,5 @@
+field,unique_values,most_common_value,most_common_count
+drug,44,Quinestrol,736
+cell_line_id,50,CVCL_0546,1051
+moa-fine,8,unclear,13580
+plate,1,plate4,20000

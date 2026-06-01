@@ -1,0 +1,8 @@
+{
+  "dataset": "tahoebio/Tahoe-100M",
+  "samples": 20000,
+  "pca_dim": 50,
+  "clusters": 10,
+  "output_dir": "outputs",
+  "random_state": 42
+}

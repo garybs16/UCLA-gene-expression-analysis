@@ -1,115 +1,167 @@
-# 🧬 UCLA Tahoe-100M Gene Expression Analysis System
+# Tahoe-100M Single-Cell Transcriptomics Pipeline
 
-**A scalable pipeline for streaming, transforming, and clustering massive single-cell gene expression datasets from [Tahoe-100M](https://huggingface.co/datasets/tahoebio/Tahoe-100M).**
+This project builds clustered transcriptomic embeddings from the public
+Tahoe-100M single-cell perturbation dataset. It is designed as a reproducible
+bioinformatics/data science pipeline that can be explained clearly in an
+interview: data ingestion, sparse matrix construction, normalization,
+dimensionality reduction, clustering, and result visualization.
 
----
+## Project Highlights
 
-## 📘 Overview
+- Streams single-cell data from Hugging Face instead of requiring a full local dataset download.
+- Builds a sparse cell-by-gene expression matrix for memory-efficient processing.
+- Applies CPM-style library-size normalization followed by `log1p`.
+- Uses `TruncatedSVD` for sparse dimensionality reduction.
+- Clusters cells with `KMeans` in embedding space.
+- Generates visual artifacts for interpretation: cluster scatter plot, explained variance, cluster counts, and drug-cluster heatmap.
+- Exports cluster quality metrics and structured tables for analysis beyond visual inspection.
+- Includes a supervised benchmark that tests whether embeddings predict mechanism-of-action labels.
 
-This repository provides a **lightweight, high-performance analysis system** for the **UCLA Tahoe-100M** dataset — a 100-million-cell benchmark dataset for large-scale gene expression research.
+## Current Demo Run
 
-The script `ucla_tahoe100m_pipeline_v2.py` supports:
-- Streaming cell data directly from Hugging Face without full dataset download  
-- Sparse matrix construction and normalization  
-- Dimensionality reduction using **TruncatedSVD (sparse PCA)**  
-- **K-Means clustering** in reduced space  
-- Automatic export of embeddings and explained variance
+The included outputs summarize a 20,000-cell run.
 
-This pipeline is ideal for exploratory gene expression analysis, large-scale benchmarking, and downstream bioinformatics workflows.
+| Metric | Value |
+| --- | ---: |
+| Cells analyzed | 20,000 |
+| Embedding dimensions | 50 |
+| Clusters discovered | 10 |
+| Drugs represented | 44 |
+| Cell lines represented | 50 |
+| Mechanism-of-action labels represented | 8 |
+| Cumulative explained variance | 0.095 |
 
----
+The report also exports clustering quality metrics:
 
-## 🚀 Quick Start
+- Silhouette score
+- Davies-Bouldin score
+- Calinski-Harabasz score
+- Cluster balance ratio
 
-### **1. Install dependencies**
+The supervised benchmark evaluates whether the 50-dimensional embeddings retain mechanism-of-action signal:
+
+| Metric | Value |
+| --- | ---: |
+| Balanced accuracy | 0.239 |
+| Baseline balanced accuracy | 0.125 |
+| Macro F1 | 0.102 |
+| Classes | 8 |
+
+## Example Figures
+
+### Clustered Cell Embeddings
+
+![Cell embeddings colored by KMeans cluster](outputs/figures/pc1_pc2_clusters.png)
+
+### Drug-by-Cluster Distribution
+
+![Drug cluster heatmap](outputs/figures/drug_cluster_heatmap.png)
+
+## Repository Structure
+
+```text
+.
++-- README.md
++-- requirements.txt
++-- pyproject.toml
++-- configs/
+|   +-- default_run.json
++-- .github/
+|   +-- workflows/
+|       +-- ci.yml
++-- embeddings.csv
++-- pca_variance.csv
++-- src/
+|   +-- __init__.py
+|   +-- evaluate_embeddings.py
+|   +-- tahoe_pipeline.py
+|   +-- make_report.py
++-- tests/
+|   +-- test_tahoe_pipeline.py
++-- outputs/
+|   +-- analysis_summary.md
+|   +-- figures/
+|       +-- cluster_counts.png
+|       +-- drug_cluster_heatmap.png
+|       +-- explained_variance.png
+|       +-- pc1_pc2_clusters.png
+|   +-- tables/
+|       +-- cluster_counts.csv
+|       +-- cluster_quality_metrics.csv
+|       +-- drug_cluster_counts.csv
+|       +-- drug_cluster_proportions.csv
+|       +-- metadata_summary.csv
+|   +-- evaluation/
+|       +-- moa_classification_report.csv
+|       +-- moa_confusion_matrix.png
+|       +-- moa_prediction_metrics.csv
++-- docs/
+    +-- interview_notes.md
+    +-- project_status.md
+```
+
+## Quickstart
+
+Create an environment and install dependencies:
+
 ```bash
-pip install datasets numpy pandas scipy scikit-learn
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
 
+Run the full pipeline:
 
+```bash
+python src/tahoe_pipeline.py --samples 20000 --pca-dim 50 --clusters 10 --output-dir outputs
+```
 
-2. Run the pipeline
-python ucla_tahoe100m_pipeline_v2.py --samples 20000 --pca_dim 50 --clusters 10
+Regenerate the figures and summary report from the included CSV outputs:
 
-3. Arguments
-Argument	Default	Description
---dataset	tahoebio/Tahoe-100M	Hugging Face dataset ID
---samples	20000	Number of cells to stream
---pca_dim	50	Number of principal components (SVD dims)
---clusters	10	K-Means cluster count
-📊 Outputs
+```bash
+python src/make_report.py --embeddings embeddings.csv --variance pca_variance.csv --output-dir outputs
+```
 
-The pipeline produces two CSV files after completion:
+Run the lightweight unit tests:
 
-File	Description
-embeddings.csv	Principal components + metadata + cluster assignment for each cell
-pca_variance.csv	Explained variance ratio for each principal component
-🧠 Methodology
+```bash
+python -m unittest discover -s tests
+```
 
-Streaming and Sparse Matrix Construction
-Loads the Tahoe-100M dataset in streaming mode using Hugging Face’s datasets API.
-Builds a sparse CSR matrix of expression counts indexed by Ensembl gene IDs.
+Evaluate whether embeddings retain mechanism-of-action signal:
 
-Normalization
-Performs CPM-like normalization per cell and applies a log1p transformation to control scale.
+```bash
+python src/evaluate_embeddings.py --embeddings embeddings.csv --label-col moa-fine --output-dir outputs/evaluation
+```
 
-Dimensionality Reduction
-Uses TruncatedSVD (a sparse PCA equivalent) to project gene expression data into lower-dimensional space.
+The original script filename still works as a compatibility wrapper:
 
-Clustering
-Applies K-Means clustering to the reduced embedding space to identify putative cell groups or subtypes.
+```bash
+python ucla_tahoe100m_pipeline_v2.py --samples 20000 --output-dir outputs
+```
 
-🧩 Example Output
+## Methodology
 
-Example of pca_variance.csv:
+1. Stream tokenized single-cell expression records from `tahoebio/Tahoe-100M`.
+2. Load gene metadata and map token IDs to Ensembl gene IDs.
+3. Build a sparse cell-by-gene matrix using `scipy.sparse.csr_matrix`.
+4. Normalize each cell by total expression, scale to counts per million, and apply `log1p`.
+5. Reduce dimensionality with `sklearn.decomposition.TruncatedSVD`.
+6. Cluster low-dimensional embeddings using `sklearn.cluster.KMeans`.
+7. Export embeddings, variance diagnostics, plots, and an analysis summary.
+8. Export cluster validation metrics and tabular summaries for deeper inspection.
+9. Train a lightweight supervised benchmark to test whether embeddings preserve mechanism-of-action signal.
 
-pc	explained_variance_ratio
-pc1	0.123
-pc2	0.089
-pc3	0.065
-...	...
-🧪 Dataset Reference
+## Results to Discuss
 
-Tahoe-100M — tahoebio/Tahoe-100M on Hugging Face
+The current run shows visible structure in the first two embedding dimensions and separates the 20,000 sampled cells into 10 clusters. The drug-cluster heatmap provides a first-pass view of how common compounds distribute across transcriptional response clusters. The supervised benchmark adds a second check by asking whether the learned embeddings contain enough signal to predict mechanism-of-action labels better than a simple majority-class baseline.
 
-A 100M-cell dataset for standardized, large-scale gene expression analysis.
-Includes tokenized gene vocabularies, metadata, and expression matrices optimized for streaming and scalable computation.
+In the included 20,000-cell run, the mechanism-of-action labels are heavily imbalanced. The supervised benchmark is therefore best judged with balanced accuracy and macro F1, not raw accuracy.
 
-⚙️ System Requirements
-Resource	Recommended
-CPU	8+ cores
-RAM	≥16 GB (scales with --samples)
-Disk	~2 GB temporary storage
-OS	Linux / macOS / WSL2
-📈 Example Workflow
-# Stream 50k cells and compute 100 principal components with 20 clusters
-python ucla_tahoe100m_pipeline_v2.py --samples 50000 --pca_dim 100 --clusters 20
+These clusters should be interpreted as candidate structure, not final biological conclusions. A stronger next step would validate clusters against known mechanism-of-action labels, apply batch-effect correction, and test whether embeddings improve downstream prediction tasks.
 
-# Inspect PCA variance
-cat pca_variance.csv | head
+See [docs/interview_notes.md](docs/interview_notes.md) for a short project pitch and likely interview questions. See [docs/project_status.md](docs/project_status.md) for maturity, limitations, and next steps.
 
-# Check embeddings and cluster labels
-head embeddings.csv
+## Resume Bullet
 
-🧰 Citation
-
-If you use this code or dataset in your research:
-
-@dataset{tahoebio_Tahoe_100M,
-  title     = {Tahoe-100M: A Large-Scale Gene Expression Benchmark Dataset},
-  author    = {TahoeBio and UCLA Computational Biology},
-  year      = {2024},
-  url       = {https://huggingface.co/datasets/tahoebio/Tahoe-100M}
-}
-
-
-
-📄 License
-
-MIT License © 2025 UCLA Bioinformatics Research Group
-Use of the Tahoe-100M dataset is subject to the Hugging Face dataset license terms.
-
-
----
-
-✅ Paste that directly into your `README.md`.  
-It uses your exact tone, emoji headers, and consistent Markdown spacing — perfect for GitHub rendering.
+Built a reproducible Python pipeline for Tahoe-100M single-cell perturbation data, streaming 20,000 cells, constructing sparse gene-expression matrices, applying log-normalized CPM preprocessing, reducing dimensionality with TruncatedSVD, clustering transcriptomic profiles with KMeans, and generating diagnostic visualizations for drug-response analysis.
